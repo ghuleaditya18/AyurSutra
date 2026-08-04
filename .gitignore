@@ -1,0 +1,13 @@
+env/
+node_modules/
+AyurSutra-backend/.env
+AyurSutra-backend/__pycache__/
+AyurSutra-backend/staticfiles/
+AyurSutra-backend/db.sqlite3
+**/__pycache__/
+*.pyc
+AyurSutra-frontend/node_modules/
+AyurSutra-frontend/dist/
+AyurSutra-frontend/.env
+.vscode/
+*.log
