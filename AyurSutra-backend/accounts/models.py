@@ -2,6 +2,7 @@ from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
+from .managers import UserManager
 
 phone_validator = RegexValidator(r'^[6-9]\d{9}$', 'Enter a valid 10-digit Indian Phone Number')
 
@@ -18,6 +19,8 @@ class User(AbstractUser):
         ('Other', 'Other'),
     )
 
+    objects = UserManager()
+
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=10, unique=True, validators=[phone_validator])
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='patient', db_index=True)
@@ -31,6 +34,9 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []   # username no longer manually required — auto-generated below
 
     def clean(self):
+        if self.is_superuser or self.role == "admin":
+            return
+    
         if self.role == 'patient':
             if self.age is None:
                 raise ValidationError({'age': 'Age is required for patients.'})

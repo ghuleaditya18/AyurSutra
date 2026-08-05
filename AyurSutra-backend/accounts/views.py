@@ -1,6 +1,7 @@
 from rest_framework import viewsets, generics, permissions
 from .models import User, Message, Notification
 from .serializers import RegisterSerializer, UserSerializer, MessageSerializer, NotificationSerializer, StaffCreateSerializer
+from .permissions import IsAdminRole
 
 
 class RegisterView(generics.CreateAPIView):
@@ -45,4 +46,4 @@ class NotificationViewSet(viewsets.ModelViewSet):
 class StaffCreateView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = StaffCreateSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminRole]
