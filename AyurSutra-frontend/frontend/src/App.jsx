@@ -1,121 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import AdminBookings from './pages/AdminBookings'
+import AdminCreateStaff from './pages/AdminCreateStaff'
+import AdminDashboard from './pages/AdminDashboard'
+import AdminFeedback from './pages/AdminFeedback'
+import AdminUsers from './pages/AdminUsers'
+import BookTherapy from './pages/BookTherapy'
+import Feedback from './pages/Feedback'
+import Landing from './pages/Landing'
+import Login from './pages/Login'
+import PatientDashboard from './pages/PatientDashboard'
+import Profile from './pages/Profile'
+import ProtectedRoute from './components/ProtectedRoute'
+import Register from './pages/Register'
+import Therapies from './pages/Therapies'
+import TherapistDashboard from './pages/TherapistDashboard'
+import TherapistPatients from './pages/TherapistPatients'
+import TherapistSchedule from './pages/TherapistSchedule'
 
-function App() {
-  const [count, setCount] = useState(0)
+const protect = (allowedRole, component) => (
+  <ProtectedRoute allowedRole={allowedRole}>{component}</ProtectedRoute>
+)
 
+const App = () => {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/login/:role" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-      <div className="ticks"></div>
+      <Route path="/dashboard" element={protect('patient', <PatientDashboard />)} />
+      <Route path="/therapies" element={protect('patient', <Therapies />)} />
+      <Route path="/book" element={protect('patient', <BookTherapy />)} />
+      <Route path="/feedback" element={protect('patient', <Feedback />)} />
+      <Route path="/profile" element={protect('patient', <Profile />)} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <Route path="/therapist/dashboard" element={protect('therapist', <TherapistDashboard />)} />
+      <Route path="/therapist/patients" element={protect('therapist', <TherapistPatients />)} />
+      <Route path="/therapist/schedule" element={protect('therapist', <TherapistSchedule />)} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <Route path="/admin/dashboard" element={protect('admin', <AdminDashboard />)} />
+      <Route path="/admin/users" element={protect('admin', <AdminUsers />)} />
+      <Route path="/admin/bookings" element={protect('admin', <AdminBookings />)} />
+      <Route path="/admin/feedback" element={protect('admin', <AdminFeedback />)} />
+      <Route path="/admin/create-staff" element={protect('admin', <AdminCreateStaff />)} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 

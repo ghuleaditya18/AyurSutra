@@ -23,6 +23,7 @@ class Feedback(models.Model):
     symptoms = models.TextField(blank=True)
     improvements = models.TextField(blank=True)
     suggestions = models.TextField(blank=True)
+    reviewed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

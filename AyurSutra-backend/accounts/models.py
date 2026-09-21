@@ -27,6 +27,7 @@ class User(AbstractUser):
     age = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(120)])
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)
     address = models.CharField(max_length=255, blank=True)
+    specialization = models.CharField(max_length=100, blank=True)
     patient_id = models.CharField(max_length=20, unique=True, null=True, blank=True)
     qr_data = models.TextField(blank=True)
 
@@ -49,6 +50,13 @@ class User(AbstractUser):
             self.email = self.email.strip().lower()
         if self.phone:
             self.phone = self.phone.strip()
+        if self.specialization:
+            self.specialization = self.specialization.strip()
+
+        if self.role != 'patient':
+            self.patient_id = None
+        if self.role != 'therapist':
+            self.specialization = ''
 
         # Auto-generate username from email if not set (keeps signup to email/phone/password only)
         if not self.username:
@@ -66,8 +74,8 @@ class User(AbstractUser):
             with transaction.atomic():
                 last_user = (
                     User.objects.select_for_update()
-                    .filter(role='patient', patient_id__isnull=False)
-                    .order_by('-id')
+                    .filter(patient_id__startswith='AYR-')
+                    .order_by('-patient_id')
                     .first()
                 )
                 last_num = int(last_user.patient_id.split('-')[1]) if last_user else 0
@@ -78,6 +86,100 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+class PatientProfile(models.Model):
+    GENDER_CHOICES = (
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    )
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='patient_profile'
+    )
+    patient_id = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True
+    )
+    age = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(120)]
+    )
+    gender = models.CharField(
+        max_length=10,
+        choices=GENDER_CHOICES
+    )
+    address = models.CharField(
+        max_length=255,
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.patient_id:
+            with transaction.atomic():
+                last_profile = (
+                    PatientProfile.objects.select_for_update()
+                    .filter(patient_id__startswith='AYR-')
+                    .order_by('-patient_id')
+                    .first()
+                )
+                if last_profile and last_profile.patient_id:
+                    try:
+                        last_num = int(last_profile.patient_id.split('-')[1])
+                    except (IndexError, ValueError):
+                        last_num = 0
+                else:
+                    last_user = (
+                        User.objects.select_for_update()
+                        .filter(patient_id__startswith='AYR-')
+                        .order_by('-patient_id')
+                        .first()
+                    )
+                    last_num = int(last_user.patient_id.split('-')[1]) if last_user and last_user.patient_id else 0
+
+                self.patient_id = f"AYR-{last_num + 1:04d}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.patient_id or 'Patient'} - {self.user.email}"
+
+
+class TherapistProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='therapist_profile'
+    )
+    specialization = models.CharField(
+        max_length=100,
+        blank=True
+    )
+    qualification = models.CharField(
+        max_length=100,
+        blank=True
+    )
+    is_available = models.BooleanField(
+        default=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        full_name = f"{self.user.first_name} {self.user.last_name}".strip() or self.user.email
+        return f"Dr. {full_name} ({self.specialization or 'General'})"
 
 
 class Message(models.Model):

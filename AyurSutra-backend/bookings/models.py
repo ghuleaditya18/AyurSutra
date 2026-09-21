@@ -1,3 +1,4 @@
+from datetime import time
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
@@ -6,9 +7,18 @@ from decimal import Decimal
 from accounts.models import User
 
 
-def validate_not_past_date(value):
+def validate_booking_date(value):
+    if isinstance(value, str):
+        from datetime import datetime
+        value = datetime.strptime(value, '%Y-%m-%d').date()
     if value < timezone.now().date():
         raise ValidationError("Date cannot be in the past.")
+    if value.weekday() == 6:
+        raise ValidationError("The hospital is closed on Sundays. Please choose a date between Monday and Saturday.")
+
+
+def validate_not_past_date(value):
+    return validate_booking_date(value)
 
 
 class Therapy(models.Model):
@@ -36,8 +46,18 @@ class Therapy(models.Model):
         return self.name
 
 
+DAILY_SLOT_START_TIMES = [
+    time(9, 0),    # 09:00 AM
+    time(11, 0),   # 11:00 AM
+    time(13, 30),  # 01:30 PM
+    time(16, 0),   # 04:00 PM
+    time(18, 0),   # 06:00 PM
+]
+
+
 class Schedule(models.Model):
     STATUS_CHOICES = (
+        ('applied', 'Applied'),
         ('scheduled', 'Scheduled'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -58,10 +78,10 @@ class Schedule(models.Model):
         blank=True,
         related_name='assigned_schedules',
     )
-    date = models.DateField(validators=[validate_not_past_date])
+    date = models.DateField(validators=[validate_booking_date])
     start_time = models.TimeField()
     end_time = models.TimeField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='scheduled', db_index=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='applied', db_index=True)
     qr_data = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -74,9 +94,32 @@ class Schedule(models.Model):
         ]
 
     def clean(self):
+        b_date = self.date
+        if isinstance(b_date, str):
+            from datetime import datetime
+            b_date = datetime.strptime(b_date, '%Y-%m-%d').date()
+
+        # Sunday check
+        if b_date and b_date.weekday() == 6:
+            raise ValidationError("The hospital is closed on Sundays. Please choose a date between Monday and Saturday.")
+
         # end_time must be after start_time
         if self.start_time and self.end_time and self.end_time <= self.start_time:
             raise ValidationError("End time must be after start time.")
+
+        # working hours check (9:00 AM to 7:00 PM)
+        if self.end_time and self.end_time > time(19, 0):
+            raise ValidationError("Appointment end time cannot exceed hospital closing time (7:00 PM).")
+
+        # duration check
+        if self.therapy_id and self.start_time and self.end_time:
+            duration = self.therapy.duration
+            start_mins = self.start_time.hour * 60 + self.start_time.minute
+            end_mins = self.end_time.hour * 60 + self.end_time.minute
+            expected_end_mins = start_mins + duration
+
+            if end_mins != expected_end_mins:
+                raise ValidationError(f"End time must be exactly {duration} minutes after start time for {self.therapy.name}.")
 
         # role correctness
         if self.patient_id and self.patient.role != 'patient':
@@ -85,18 +128,18 @@ class Schedule(models.Model):
         if self.therapist_id and self.therapist.role != 'therapist':
             raise ValidationError("Assigned therapist must have role='therapist'.")
 
-        # overlap check — same therapist, same date, overlapping time range
-        if self.therapist_id and self.date and self.start_time and self.end_time:
+        # overlap check — same therapist, same date, overlapping time range for active bookings
+        if self.therapist_id and self.date and self.start_time and self.end_time and self.status in ('applied', 'scheduled'):
             overlapping = Schedule.objects.filter(
                 therapist_id=self.therapist_id,
                 date=self.date,
-                status='scheduled',
+                status__in=['applied', 'scheduled'],
             ).exclude(pk=self.pk).filter(
                 start_time__lt=self.end_time,
                 end_time__gt=self.start_time,
             )
             if overlapping.exists():
-                raise ValidationError("This therapist already has an overlapping booking at this time.")
+                raise ValidationError("This therapist already has an appointment booked during this time slot.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
